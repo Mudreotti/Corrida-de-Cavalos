@@ -133,11 +133,17 @@ class Jogo:
                 self._bot_tecla = None
         elif fase == P.FASE_RESULTADO and espera > 90:
             if self.rodadas > 1:
+                # Em partidas automatizadas, somente o servidor coordena a revanche.
+                # O cliente aguarda a mensagem N enviada pelo servidor; assim os dois
+                # processos não disputam a transição para a próxima rodada.
                 self.rodadas -= 1
-                if self.papel == 1 or espera > 120:
+                if self.papel == 1:
                     self.ao_revanche()
-                    self._bot_t0 = self.frame_local + 10**6      # evita repetir o pedido
+                # Impede que este resultado seja processado novamente enquanto
+                # aguardamos a próxima rodada (especialmente no cliente).
+                self._bot_t0 = self.frame_local + 10**6
             elif self.rodadas == 1 and espera > 150:
+                # A última rodada já terminou e seu resultado foi recebido.
                 self.rodando = False
 
     def conectado(self, d):

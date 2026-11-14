@@ -68,7 +68,9 @@ class Conexao:
         self.ao_cair = ao_cair
         self.log = log
         self.send_lock = threading.Lock()
+        self._estado_lock = threading.Lock()
         self.viva = True
+        self._queda_notificada = False
         self.leitor = P.Leitor()
         self.thread = threading.Thread(target=self._receber, daemon=True, name="recepcao")
         self.thread.start()
@@ -87,31 +89,58 @@ class Conexao:
             return False
 
     def _receber(self):
-        while self.viva:
-            try:
-                dados = self.sock.recv(RECV_BUF)
-            except OSError:
-                break
-            if not dados:                      # o outro lado fechou
-                break
-            for linha in self.leitor.alimentar(dados):
-                self.log.msg("RECEBIDO", linha)
+        """Recebe mensagens completas; qualquer falha encerra a conexão uma única vez."""
+        try:
+            while self.viva:
                 try:
-                    msg, valor = P.decodificar(linha)
-                except P.ErroProtocolo as e:
-                    self.log.info(f"mensagem inválida ignorada: {e}")
-                    continue
-                self.ao_receber(msg, valor)
-        self._cair()
+                    dados = self.sock.recv(RECV_BUF)
+                except OSError as e:
+                    if self.viva:
+                        self.log.info(f"falha ao receber dados: {e}")
+                    break
+
+                if not dados:  # o outro lado fechou a conexão
+                    break
+
+                for linha in self.leitor.alimentar(dados):
+                    self.log.msg("RECEBIDO", linha)
+                    try:
+                        msg, valor = P.decodificar(linha)
+                    except P.ErroProtocolo as e:
+                        self.log.info(f"mensagem inválida ignorada: {e}")
+                        continue
+
+                    try:
+                        self.ao_receber(msg, valor)
+                    except Exception as e:
+                        # Não deixa uma exceção de regra/callback matar a thread
+                        # silenciosamente: registra a causa e fecha de forma controlada.
+                        self.log.info(f"erro ao processar mensagem {linha!r}: {type(e).__name__}: {e}")
+                        return
+        finally:
+            self._cair()
 
     def _cair(self):
-        if self.viva:
+        """Fecha o socket e notifica a aplicação no máximo uma vez."""
+        with self._estado_lock:
+            if self._queda_notificada:
+                return
+            self._queda_notificada = True
             self.viva = False
-            try:
-                self.sock.close()
-            except OSError:
-                pass
+
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+        try:
             self.ao_cair()
+        except Exception as e:
+            self.log.info(f"erro no callback de desconexão: {type(e).__name__}: {e}")
 
     def fechar(self):
         self._cair()

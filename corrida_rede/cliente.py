@@ -1,3 +1,4 @@
+
 # Autores: Murilo Andreotti Borges (RA 25163806-2) e Matheus Marçal Martinelli (RA 25076306-2)
 # Sistemas Operacionais - Trabalho 02: jogo com troca de mensagens e gerenciamento de memória
 # Prof. Maurilio Campano Jr - Corrida de Cavalos: Duelo 1x1 em rede
@@ -52,10 +53,6 @@ class JogoCliente(app.Jogo):
     def ao_cair(self):
         self.caiu = True
         self.estado.set(conectado=0)
-        # Nos testes/demonstrações automatizados, o servidor encerra após a
-        # última rodada. Sem janela/teclado, o bot ficaria preso no lobby.
-        if self.bot:
-            self.rodando = False
 
     def receber(self, msg, valor):
         if msg.origem != P.SERVIDOR:
@@ -107,6 +104,10 @@ class JogoCliente(app.Jogo):
             self.estado.modificar(f)
         elif t == "X":
             self.ao_cair()
+            # Em modo automatizado, X encerra a sessão de teste imediatamente.
+            # No modo normal, mantém a tela de conexão perdida aberta até ESC.
+            if self.bot:
+                self.rodando = False
 
     # ------------------------------------------------------------ ações do jogador local
     def ao_mudar_visual(self):
