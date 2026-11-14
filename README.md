@@ -46,8 +46,8 @@ python -m unittest discover -s testes -v
 
 ## Integrantes
 
-- Murilo Andreotti Borges
-- Matheus Marçal Martinelli
+- Murilo Andreotti Borges   RA:25163806-2
+- Matheus Marçal Martinelli RA:25076306-2
 
 ## Observações
 
