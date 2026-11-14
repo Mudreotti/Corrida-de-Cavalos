@@ -52,6 +52,10 @@ class JogoCliente(app.Jogo):
     def ao_cair(self):
         self.caiu = True
         self.estado.set(conectado=0)
+        # Nos testes/demonstrações automatizados, o servidor encerra após a
+        # última rodada. Sem janela/teclado, o bot ficaria preso no lobby.
+        if self.bot:
+            self.rodando = False
 
     def receber(self, msg, valor):
         if msg.origem != P.SERVIDOR:
